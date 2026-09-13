@@ -1,0 +1,8 @@
+
+export type MuscleKey="pectoralisMajor"|"upperChest"|"anteriorDeltoid"|"lateralDeltoid"|"posteriorDeltoid"|"triceps"|"biceps"|"forearms"|"trapezius"|"latissimus"|"upperBack"|"abdominals"|"obliques"|"glutes"|"quadriceps"|"hamstrings"|"calves";
+export type Exercise={id:string;name:string;movementPattern:string;equipment:string;difficulty:string;primaryMuscles:MuscleKey[];secondaryMuscles:MuscleKey[];stabilizers:MuscleKey[];typicalRepRange:string;loadType:string;notes:string};
+export type MuscleValues=Record<MuscleKey,number>;
+export type Measurements={height_cm:number;weight_kg:number;shoulder_width_cm:number;torso_length_cm:number;chest_depth_cm:number;waist_width_cm:number;waist_depth_cm:number;hip_width_cm:number;arm_length_cm:number;leg_length_cm:number;upper_arm_proxy_cm:number;forearm_proxy_cm:number;thigh_proxy_cm:number;calf_proxy_cm:number};
+export const MUSCLES:MuscleKey[]=["pectoralisMajor","upperChest","anteriorDeltoid","lateralDeltoid","posteriorDeltoid","triceps","biceps","forearms","trapezius","latissimus","upperBack","abdominals","obliques","glutes","quadriceps","hamstrings","calves"];
+export const emptyMuscles=()=>Object.fromEntries(MUSCLES.map(m=>[m,0])) as MuscleValues;
+export const labels:Record<MuscleKey,string>={pectoralisMajor:"Chest",upperChest:"Upper chest",anteriorDeltoid:"Front delts",lateralDeltoid:"Side delts",posteriorDeltoid:"Rear delts",triceps:"Triceps",biceps:"Biceps",forearms:"Forearms",trapezius:"Traps",latissimus:"Lats",upperBack:"Upper back",abdominals:"Abdominals",obliques:"Obliques",glutes:"Glutes",quadriceps:"Quadriceps",hamstrings:"Hamstrings",calves:"Calves"};

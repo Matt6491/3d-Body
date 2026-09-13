@@ -1,0 +1,20 @@
+{
+  "roleCoefficients": {
+    "primary": 1.0,
+    "secondary": 0.48,
+    "stabilizer": 0.16
+  },
+  "experienceResponse": {
+    "beginner": 1.0,
+    "intermediate": 0.72,
+    "advanced": 0.46
+  },
+  "maxNormalizedMuscleDelta": 0.34,
+  "baseGrowthScale": 0.22,
+  "minimumEffectiveWeeklyReps": 4,
+  "productiveVolumeMidpoint": 100,
+  "notes": "Heuristic prototype parameters. These are internal normalized coefficients, not experimentally exact percentages. Validate against longitudinal training data before clinical or predictive claims.",
+  "effortQualityFloor": 0.45,
+  "recoveryOverloadThresholdEffectiveReps": 350,
+  "recoveryOverloadScale": 500
+}
