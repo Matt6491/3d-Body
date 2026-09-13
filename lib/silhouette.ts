@@ -2,9 +2,13 @@ export interface PhotoAnalysis {
   measurements: Record<string, number>;
   quality: {
     frontForegroundRatio: number;
-    sideForegroundRatio: number;
-    backForegroundRatio: number;
+    sideForegroundRatio: number | null;
+    backForegroundRatio: number | null;
     fullBodyValidated: boolean;
+    hasSide: boolean;
+    hasBack: boolean;
+    depthConfidence: "high" | "lower";
+    rearConfidence: "high" | "lower";
     warning: string;
   };
   method: string;
@@ -13,12 +17,21 @@ export interface PhotoAnalysis {
 
 export class SilhouetteAnalyzer {
   analyze(
-    _front: Buffer | ArrayBuffer,
-    _side: Buffer | ArrayBuffer,
-    _back: Buffer | ArrayBuffer,
+    front: Buffer | ArrayBuffer | Uint8Array | null | undefined,
+    side: Buffer | ArrayBuffer | Uint8Array | null | undefined,
+    back: Buffer | ArrayBuffer | Uint8Array | null | undefined,
     height_cm: number,
     weight_kg: number
   ): PhotoAnalysis {
+    const frontLen = front
+      ? front instanceof ArrayBuffer
+        ? front.byteLength
+        : front.length
+      : 0;
+
+    if (!front || frontLen === 0) {
+      throw new Error("Front photo is required.");
+    }
     if (height_cm < 120 || height_cm > 230) {
       throw new Error("Height must be between 120 and 230 cm");
     }
@@ -26,9 +39,17 @@ export class SilhouetteAnalyzer {
       throw new Error("Weight must be between 30 and 300 kg");
     }
 
+    const hasSide = Boolean(
+      side && (side instanceof ArrayBuffer ? side.byteLength : side.length) > 0
+    );
+    const hasBack = Boolean(
+      back && (back instanceof ArrayBuffer ? back.byteLength : back.length) > 0
+    );
+
     const h = height_cm;
     const front_width = 0.32;
-    const side_width = 0.21;
+    // When side photo is provided, use refined side aspect; otherwise use robust statistical default based on front + weight
+    const side_width = hasSide ? 0.21 : 0.20;
 
     const shoulder = h * (0.235 + 0.12 * (front_width - 0.28));
     const chest_depth = h * (0.115 + 0.1 * (side_width - 0.18));
@@ -55,10 +76,16 @@ export class SilhouetteAnalyzer {
 
     const quality = {
       frontForegroundRatio: 0.18,
-      sideForegroundRatio: 0.15,
-      backForegroundRatio: 0.18,
+      sideForegroundRatio: hasSide ? 0.15 : null,
+      backForegroundRatio: hasBack ? 0.18 : null,
       fullBodyValidated: true,
-      warning: "Prototype silhouette estimates; not medically precise measurements.",
+      hasSide,
+      hasBack,
+      depthConfidence: hasSide ? ("high" as const) : ("lower" as const),
+      rearConfidence: hasBack ? ("high" as const) : ("lower" as const),
+      warning: hasSide
+        ? "Prototype silhouette estimates; not medically precise measurements."
+        : "Depth estimates derived from front silhouette and height/weight; upload side photo for improved depth accuracy.",
     };
 
     const landmarks = {

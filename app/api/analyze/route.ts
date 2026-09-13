@@ -50,9 +50,22 @@ export async function POST(req: NextRequest) {
     const sideFile = formData.get("side") as File | null;
     const backFile = formData.get("back") as File | null;
 
-    const frontBuffer = frontFile ? await frontFile.arrayBuffer() : new ArrayBuffer(0);
-    const sideBuffer = sideFile ? await sideFile.arrayBuffer() : new ArrayBuffer(0);
-    const backBuffer = backFile ? await backFile.arrayBuffer() : new ArrayBuffer(0);
+    if (!frontFile || (frontFile instanceof File && frontFile.size === 0)) {
+      return NextResponse.json(
+        { detail: "Front photo is required." },
+        { status: 400 }
+      );
+    }
+
+    const frontBuffer = await frontFile.arrayBuffer();
+    const sideBuffer =
+      sideFile && sideFile instanceof File && sideFile.size > 0
+        ? await sideFile.arrayBuffer()
+        : null;
+    const backBuffer =
+      backFile && backFile instanceof File && backFile.size > 0
+        ? await backFile.arrayBuffer()
+        : null;
 
     const result = analyzer.analyze(frontBuffer, sideBuffer, backBuffer, heightCm, weightKg);
 

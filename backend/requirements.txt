@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+pydantic
+pillow
+numpy
+pytest
+requests
+python-multipart

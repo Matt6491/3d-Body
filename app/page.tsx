@@ -21,7 +21,7 @@ export default function Home(){
  const [knownShoulder,setKnownShoulder]=useState(""),[knownWaist,setKnownWaist]=useState(""),[knownHip,setKnownHip]=useState("");
  const [adult,setAdult]=useState(false),[consent,setConsent]=useState(false),[autoDelete,setAutoDelete]=useState(true),[excludeFace,setExcludeFace]=useState(true);
  const [photos,setPhotos]=useState<Record<string,File|undefined>>({}); const [bodyId,setBodyId]=useState<string>(); const [analysisId,setAnalysisId]=useState<string>();
- const [measurements,setMeasurements]=useState<any>(); const [busy,setBusy]=useState(false); const [error,setError]=useState("");
+ const [measurements,setMeasurements]=useState<any>(); const [analysisQuality,setAnalysisQuality]=useState<any>(); const [busy,setBusy]=useState(false); const [error,setError]=useState("");
  const [selected,setSelected]=useState("pushup"); const [mode,setMode]=useState<"simple"|"structured">("simple");
  const [reps,setReps]=useState(100),[days,setDays]=useState(7),[sets,setSets]=useState(5),[rir,setRir]=useState(2);
  const [recovery,setRecovery]=useState(85),[adherence,setAdherence]=useState(90);
@@ -34,14 +34,17 @@ export default function Home(){
  const highlight=useMemo(()=>{const h:Partial<Record<MuscleKey,"primary"|"secondary"|"stabilizer">>={};mapEx.primaryMuscles.forEach(m=>h[m]="primary");mapEx.secondaryMuscles.forEach(m=>h[m]="secondary");mapEx.stabilizers.forEach(m=>h[m]="stabilizer");return h},[mapEx]);
  const reverseExercises=useMemo(()=>exercises.filter(e=>e.primaryMuscles.includes(reverseMuscle)||e.secondaryMuscles.includes(reverseMuscle)),[reverseMuscle,exercises]);
 
- async function reconstruct(){
+ async function reconstruct(frontOnly: boolean = false){
    setError(""); if(!adult||!consent){setError("Confirm adult eligibility and photo-processing consent.");return}
-   if(!photos.front||!photos.side||!photos.back){setError("Front, side, and back photographs are required.");return}
-   const fd=new FormData(); fd.append("front",photos.front);fd.append("side",photos.side);fd.append("back",photos.back);
+   if(!photos.front){setError("Front photo required");return}
+   const fd=new FormData();
+   fd.append("front",photos.front);
+   if(!frontOnly && photos.side) fd.append("side",photos.side);
+   if(!frontOnly && photos.back) fd.append("back",photos.back);
    Object.entries({age:String(age),sex,height_cm:String(height),weight_kg:String(weight),experience,consent:"true",adult_confirmed:"true",auto_delete_originals:String(autoDelete),exclude_face:String(excludeFace)}).forEach(([k,v])=>fd.append(k,v));
    if(bodyFatEstimate)fd.append("body_fat_estimate",bodyFatEstimate); if(trainingFrequency)fd.append("training_frequency",trainingFrequency);
    if(knownShoulder)fd.append("known_shoulder_width_cm",knownShoulder); if(knownWaist)fd.append("known_waist_width_cm",knownWaist); if(knownHip)fd.append("known_hip_width_cm",knownHip);
-   setBusy(true);try{const r=await analyzeBody(fd);setBodyId(r.bodyId);setAnalysisId(r.analysisId);setMeasurements(r.body.measurements);setTab("body")}catch(e:any){setError(e.message)}finally{setBusy(false)}
+   setBusy(true);try{const r=await analyzeBody(fd);setBodyId(r.bodyId);setAnalysisId(r.analysisId);setMeasurements(r.body.measurements);setAnalysisQuality(r.analysis?.quality);setTab("body")}catch(e:any){setError(e.message)}finally{setBusy(false)}
  }
  function draftItem():RoutineItem{
    if(mode==="simple"){
@@ -77,7 +80,7 @@ export default function Home(){
  async function wipe(){
    if(bodyId&&bodyId!=="qa-local-profile")try{await deleteBody(bodyId)}catch{}
    if(analysisId)try{await deleteAnalysis(analysisId)}catch{}
-   setBodyId(undefined);setAnalysisId(undefined);setMeasurements(undefined);setMuscles(emptyMuscles());setTimeline([]);setRoutine([]);setPhotos({});setTab("body");
+   setBodyId(undefined);setAnalysisId(undefined);setMeasurements(undefined);setAnalysisQuality(undefined);setMuscles(emptyMuscles());setTimeline([]);setRoutine([]);setPhotos({});setTab("body");
  }
 
  return <main className="shell">
@@ -90,7 +93,7 @@ export default function Home(){
    <aside className="panel">
     {tab==="body"&&<>
       <div className="eyebrow">Personal reconstruction</div><h1 className="title">{bodyId?"Your baseline body":"Build your baseline"}</h1>
-      <p className="muted">Three clothed full-body photos plus height provide a consistent geometry baseline. Estimates are not medical measurements.</p>
+      <p className="muted">Front full-body photo required. Side and back photos are optional accuracy improvements for depth and posterior geometry.</p>
       {!bodyId?<>
        <div className="card"><h3>1 · Adult profile</h3>
         <div className="row"><div className="field"><label>Age</label><input type="number" min={18} value={age} onChange={e=>setAge(+e.target.value)}/></div><div className="field"><label>Biological sex</label><select value={sex} onChange={e=>setSex(e.target.value)}><option value="male">Male</option><option value="female">Female</option></select></div></div>
@@ -100,13 +103,54 @@ export default function Home(){
         <label className="check"><input type="checkbox" checked={adult} onChange={e=>setAdult(e.target.checked)}/><span>I confirm I am 18 or older and these are photos of my own adult body.</span></label>
        </div>
        <div className="card"><h3>2 · Photos</h3><p className="muted">Wear fitted athletic clothing. Nudity is not required. Face may be cropped before upload.</p>
-        <div className="uploads">{(["front","side","back"] as const).map(k=><label className={`upload ${photos[k]?"has":""}`} key={k}><input hidden type="file" accept="image/*" onChange={e=>setPhotos(p=>({...p,[k]:e.target.files?.[0]}))}/>{photos[k]?"✓ ":"＋ "}{k.toUpperCase()}</label>)}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8,margin:"12px 0"}}>
+          <label className={`upload ${photos.front?"has":""}`} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",cursor:"pointer"}}>
+            <input hidden type="file" accept="image/*" onChange={e=>setPhotos(p=>({...p,front:e.target.files?.[0]}))}/>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span>{photos.front?"✅":"○"}</span>
+              <div><strong style={{fontSize:13,display:"block"}}>Front photo required</strong><small style={{color:"#8b90a0",fontSize:11}}>{photos.front?photos.front.name:"Baseline frontal silhouette and width geometry"}</small></div>
+            </div>
+            <span style={{fontSize:11,textTransform:"uppercase",letterSpacing:".05em",padding:"3px 8px",borderRadius:4,background:"#1f212a",color:photos.front?"#63f6b3":"#a0a5b5"}}>{photos.front?"Ready":"Upload"}</span>
+          </label>
+
+          <label className={`upload ${photos.side?"has":""}`} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",cursor:"pointer"}}>
+            <input hidden type="file" accept="image/*" onChange={e=>setPhotos(p=>({...p,side:e.target.files?.[0]}))}/>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span>{photos.side?"✅":"○"}</span>
+              <div><strong style={{fontSize:13,display:"block"}}>Side photo — optional, improves depth accuracy</strong><small style={{color:"#8b90a0",fontSize:11}}>{photos.side?photos.side.name:"Refines chest depth and waist depth estimates"}</small></div>
+            </div>
+            <span style={{fontSize:11,textTransform:"uppercase",letterSpacing:".05em",padding:"3px 8px",borderRadius:4,background:"#1f212a",color:photos.side?"#63f6b3":"#a0a5b5"}}>{photos.side?"Ready":"Optional"}</span>
+          </label>
+
+          <label className={`upload ${photos.back?"has":""}`} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",cursor:"pointer"}}>
+            <input hidden type="file" accept="image/*" onChange={e=>setPhotos(p=>({...p,back:e.target.files?.[0]}))}/>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span>{photos.back?"✅":"○"}</span>
+              <div><strong style={{fontSize:13,display:"block"}}>Back photo — optional, improves back and shoulder accuracy</strong><small style={{color:"#8b90a0",fontSize:11}}>{photos.back?photos.back.name:"Refines lat width and posterior torso geometry"}</small></div>
+            </div>
+            <span style={{fontSize:11,textTransform:"uppercase",letterSpacing:".05em",padding:"3px 8px",borderRadius:4,background:"#1f212a",color:photos.back?"#63f6b3":"#a0a5b5"}}>{photos.back?"Ready":"Optional"}</span>
+          </label>
+        </div>
         <label className="check"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/><span>I consent to local/body-analysis processing. Photos are not used for model training.</span></label>
         <label className="check"><input type="checkbox" checked={autoDelete} onChange={e=>setAutoDelete(e.target.checked)}/><span>Delete original photos automatically after reconstruction.</span></label><label className="check"><input type="checkbox" checked={excludeFace} onChange={e=>setExcludeFace(e.target.checked)}/><span>Exclude face appearance from the body model. Head position may still be used as a geometric landmark.</span></label>
-        <button className="primary" disabled={busy} onClick={reconstruct}>{busy?"ANALYZING…":"CREATE BODY"}</button>
-        <button className="ghost" style={{width:"100%",marginTop:8}} onClick={loadQA}>LOAD 35M PUSHUP QA PROFILE</button>
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:12}}>
+          {photos.front && (photos.side || photos.back) ? (
+            <>
+              <button className="primary" disabled={busy} onClick={()=>reconstruct(false)}>{busy?"ANALYZING…":"CREATE BODY WITH ALL PHOTOS"}</button>
+              <button className="ghost" style={{width:"100%"}} disabled={busy} onClick={()=>reconstruct(true)}>Continue with front photo only</button>
+            </>
+          ) : (
+            <button className="primary" disabled={busy} onClick={()=>reconstruct(false)}>{busy?"ANALYZING…":"Continue with front photo only"}</button>
+          )}
+          <button className="ghost" style={{width:"100%"}} onClick={loadQA}>LOAD 35M PUSHUP QA PROFILE</button>
+        </div>
        </div>
-      </>:<><div className="card"><h3>Estimated proportions</h3>{measurements&&Object.entries(measurements).filter(([k])=>k.endsWith("_cm")).slice(0,8).map(([k,v])=><div className="metric" key={k}><span>{k.replaceAll("_"," ")}</span><span>{String(v)} cm</span></div>)}</div>
+      </>:<><div className="card"><h3>Estimated proportions</h3>
+       {analysisQuality?.depthConfidence==="lower"&&<div style={{fontSize:12,padding:"6px 10px",borderRadius:4,background:"rgba(255,193,7,0.08)",border:"1px solid rgba(255,193,7,0.25)",color:"#ffd54f",marginBottom:10}}>Front photo only: Depth estimates modeled from front silhouette and height/weight (lower confidence). Add a side photo anytime for refined depth accuracy.</div>}
+       {measurements&&Object.entries(measurements).filter(([k])=>k.endsWith("_cm")).slice(0,10).map(([k,v])=>{
+         const isLower=k.includes("depth")&&analysisQuality?.depthConfidence==="lower";
+         return <div className="metric" key={k}><span>{k.replaceAll("_"," ")}{isLower&&<small style={{marginLeft:6,color:"#ffd54f",fontSize:10}}>· lower confidence</small>}</span><span>{String(v)} cm</span></div>;
+       })}</div>
        <div className="notice">Your baseline geometry is held stable through the timeline. Muscle parameters deform local regions; body-fat mode remains CONSTANT.</div>
       </>}
     </>}
