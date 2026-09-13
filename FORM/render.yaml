@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: form-api
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    healthCheckPath: /health
-    envVars:
-      - key: FORM_ALLOWED_ORIGINS
-        sync: false

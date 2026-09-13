@@ -1,0 +1,6 @@
+{
+  "name": "FORM — Training Adaptation Simulator",
+  "description": "Exercise-driven 3D body adaptation simulator modeling localized muscle hypertrophy across training timelines.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
